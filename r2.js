@@ -114,52 +114,78 @@ var valueMap = {
   'background-position': bgPosition
 }
 
-function processRule(rule, idx, list) {
-  var prev = list[idx-1]
-  if (prev && prev.type === 'comment' && prev.comment.trim() === '@noflip')
-    return;
+function processRules(rules) {
+  for (var idx=0;idx<rules.length;idx++) {
+    var rule = rules[idx];
+    var prev = rules[idx - 1]
+    if (prev && prev.type === 'comment' && prev.comment.trim() === '@noflip')
+      return;
 
-  if (rule.declarations)
-    rule.declarations.forEach(processDeclaration)
-  else if (rule.rules)
-    rule.rules.forEach(processRule)
+    if (rule.declarations) {
+      processDeclarations(rule.declarations);
+      if (rule.declarations.length == 0) {
+        //Remove rule
+        rules.splice(idx--, 1);
+      } else {
+        //Append rtl selectors
+        if (rule.selectors) {
+          rule.selectors.forEach(function (rule, idx, list) {
+            list[idx] = '*[dir="rtl"] ' + rule;
+          })
+        }
+      }
+    }
+    else if (rule.rules)
+      processRules(rule.rules)
+  }
 }
 
-function processDeclaration(declaration) {
-  // Ignore comments in declarations
-  if (declaration.type !== 'declaration')
-    return
+function processDeclarations(declarations) {
+  for (var idx=0;idx<declarations.length;idx++) {
+    var declaration = declarations[idx];
+    // Ignore comments in declarations
+    if (declaration.type !== 'declaration') {
+      //Remove
+      declarations.splice(idx--, 1);
+      continue;
+    }
 
-  // RegEx for comments is taken from http://www.w3.org/TR/CSS21/grammar.html
-  var commentRegEx = /\/\*[^*]*\*+([^/*][^*]*\*+)*\//g
-    , prop = declaration.property.replace(commentRegEx, '') // remove comments
-    , val = declaration.value.replace(commentRegEx, '')
-    , important = /!important/
-    , isImportant = val.match(important)
-    , asterisk = prop.match(/^(\*+)(.+)/, '')
+    // RegEx for comments is taken from http://www.w3.org/TR/CSS21/grammar.html
+    var commentRegEx = /\/\*[^*]*\*+([^/*][^*]*\*+)*\//g
+      , prop = declaration.property.replace(commentRegEx, '') // remove comments
+      , val = declaration.value.replace(commentRegEx, '')
+      , important = /!important/
+      , isImportant = val.match(important)
+      , asterisk = prop.match(/^(\*+)(.+)/, '')
 
-  if (asterisk) {
-    prop = asterisk[2]
-    asterisk = asterisk[1]
-  } else {
-    asterisk = ''
+    if (asterisk) {
+      prop = asterisk[2]
+      asterisk = asterisk[1]
+    } else {
+      asterisk = ''
+    }
+    prop = propertyMap[prop] || prop
+    val = valueMap[prop] ? valueMap[prop](val) : val
+
+    if (!val.match(important) && isImportant) val += '!important'
+
+    declaration.property = asterisk + prop;
+    declaration.value = val;
+
+    if (!(propertyMap.hasOwnProperty(prop) || valueMap.hasOwnProperty(prop))) {
+      //Remove this declaration
+      declarations.splice(idx--, 1)
+    }
   }
-  prop = propertyMap[prop] || prop
-  val = valueMap[prop] ? valueMap[prop](val) : val
-
-  if (!val.match(important) && isImportant) val += '!important'
-
-  declaration.property = asterisk + prop;
-  declaration.value = val;
 }
 
 function r2(css, options) {
   var ast
   if (!options)
-    options = { compress: true }
+    options = { compress: false }
 
   ast = parser(css)
-  ast.stylesheet.rules.forEach(processRule)
+  processRules(ast.stylesheet.rules)
 
   return builder(ast, options)
 }
