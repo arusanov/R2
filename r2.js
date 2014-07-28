@@ -172,8 +172,8 @@ function processDeclarations(declarations) {
     declaration.property = asterisk + prop;
     if (declaration.value!==val){
       declaration.value = val;
-    } else {
-      //Not changed. remove
+    } else if (!propertyMap.hasOwnProperty(prop)){
+      //Not changed value and property. remove
       declarations.splice(idx--, 1);
       continue;
     }
