@@ -9,6 +9,7 @@ body {
 body .class, div .class {
     margin: 3px 3px 2px 1px;
     color: red;
+    padding: 3px;
 }
 
 div {

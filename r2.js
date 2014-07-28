@@ -170,7 +170,13 @@ function processDeclarations(declarations) {
     if (!val.match(important) && isImportant) val += '!important'
 
     declaration.property = asterisk + prop;
-    declaration.value = val;
+    if (declaration.value!==val){
+      declaration.value = val;
+    } else {
+      //Not changed. remove
+      declarations.splice(idx--, 1);
+      continue;
+    }
 
     if (!(propertyMap.hasOwnProperty(prop) || valueMap.hasOwnProperty(prop))) {
       //Remove this declaration
